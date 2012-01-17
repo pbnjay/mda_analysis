@@ -1,0 +1,30 @@
+These are a few simple scripts for an analysis we're doing using the Mouse Diversity Array.
+
+More information about the array can be found at http://cgd.jax.org/tools/diversityarray.shtml
+
+The MouseDivGeno R package for genotyping can be found at http://cgd.jax.org/tools/mousedivgeno/
+
+You will also need to browse to: http://cgd.jax.org/datasets/popgen/diversityarray/yang2011.shtml
+From there, you can download the SNPs for your strains of interest (in the
+examples below it our download is res591576617.csv)
+
+Quickstart:
+    $ curl -O http://cgd.jax.org/tools/mousedivgeno/MouseDivGeno_1.0.3.tar.gz
+    $ curl -O http://cgd.jax.org/tools/mousedivgeno/MouseDivData.RData
+    $ R CMD INSTALL MouseDivGeno_1.0.3.tar.gz
+    $ R
+    R> source("http://bioconductor.org/biocLite.R")
+    R> biocLite("org.Mm.eg.db")
+
+    $ mkdir celfiles
+    $ cp /path/to/cel/files/*.CEL celfiles/
+
+    $ ./get_genotypes.R celfiles genotypes.txt
+      ## takes approx 1.5 hours on a 2.6Ghz MacBook Pro
+
+    $ python determine_founders.py res591576617.csv genotypes.txt results.txt
+      ## 15 secs
+
+    $ python call_founders.py results.txt founders.txt
+      ## 30 secs
+
