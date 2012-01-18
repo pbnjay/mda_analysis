@@ -28,7 +28,7 @@ Quickstart:
     $ python call_founders.py results.txt founders.txt
       ## 30 secs
 
-		$ ./chr_plot.R color_defs.txt founders.txt 1 mouse1.pdf Mouse1Title
-		$ ./chr_plot.R color_defs.txt founders.txt 2 mouse2.pdf Mouse2Title
-		$ ./chr_plot.R color_defs.txt founders.txt 3 mouse3.pdf Mouse2Title
+    $ ./chr_plot.R color_defs.txt founders.txt 1 mouse1.pdf Mouse1Title
+    $ ./chr_plot.R color_defs.txt founders.txt 2 mouse2.pdf Mouse2Title
+    $ ./chr_plot.R color_defs.txt founders.txt 3 mouse3.pdf Mouse2Title
       ## ~30 secs each
