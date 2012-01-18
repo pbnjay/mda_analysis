@@ -22,7 +22,7 @@ all_lines.sort(key=lambda x:(x[5],int(x[6])))
 num_arrays = len(all_lines[0])-5
 out_distributions =[{} for x in range(0,num_arrays+1)]
 out_sets = [[] for x in range(0,num_arrays+1)]
-lastcross=[1 for x in range(0,num_arrays+1)]
+lastcross=[[1,1] for x in range(0,num_arrays+1)]
 lastchr=''
 canbe=None
 possible=None
@@ -32,11 +32,18 @@ fout = open(sys.argv[2], 'w')
 for ln in range(1,len(all_lines)):
     d=all_lines[ln]
     chr = d[-4][3:]
-    #pos = int(d[-3])
+    pos = d[-3]
     a = d[-2].split(': ')
-    a[1]=a[1].split(' // ')
+    a[1]=set(a[1].split(' // '))
     b = d[-1].split(': ')
-    b[1]=b[1].split(' // ')
+    b[1]=set(b[1].split(' // '))
+
+    if '' in a[1]:
+        a[1].remove('')
+    if '' in b[1]:
+        b[1].remove('')
+    if len(a[1])==0 or len(b[1])==0:
+        continue
 
     founders.update( a[1] )
     founders.update( b[1] )
@@ -44,34 +51,65 @@ for ln in range(1,len(all_lines)):
     if lastchr!=chr:
         possible=['-']
         for idx in range(1,num_arrays+1):
-            possible.append( set() )
+            possible.append( [set(),set()] )
 
+    out_sets[0].append( [d[0], chr, pos] )
     for idx in range(1,num_arrays+1):
-        if d[idx][0]==d[idx][1]: # homozygous
-            if a[0][0]==d[idx][0]: # A allele
-                canbe=frozenset(a[1])
-            elif b[0][0]==d[idx][0]: # B allele
-                canbe=frozenset(b[1])
+        left=set()
+        right=set()
+        left_could_be=0
+        right_could_be=0
+        if d[idx][0]==a[0][0]: # A allele
+            left=a[1]
 
-        else: # heterozygous
-            canbe=frozenset(a[1]+b[1])
-            #out_sets[idx].append(set())
-            #continue
+            if d[idx][1]==a[0][0]: # homozygous A
+                right=a[1]
+            elif d[idx][1]==b[0][0]: # het
+                right=b[1]
 
-        if len(possible[idx])==0 or possible[idx].isdisjoint(canbe):
-            if lastcross[idx]!=0:
-                for li in range(lastcross[idx], ln-1):
-                    out_sets[idx][li-1] = out_sets[idx][ln-2]
+        elif d[idx][0]==b[0][0]: # B allele
+            left=b[1]
 
-            lastcross[idx]=ln
-            possible[idx]=set(canbe)
+            if d[idx][1]==b[0][0]: # homozygous B
+                right=b[1]
+            elif d[idx][1]==a[0][0]: # het
+                right=a[1]
+
+        crossover=None
+        if not possible[idx][0].isdisjoint(left) and not possible[idx][1].isdisjoint(right):
+            possible[idx][0].intersection_update(left)
+            possible[idx][1].intersection_update(right)
+        elif not possible[idx][1].isdisjoint(left):
+            possible[idx][1].intersection_update(left)
+            possible[idx][0]=set(right)
+            crossover=[0]
+        elif not possible[idx][0].isdisjoint(right):
+            possible[idx][0].intersection_update(right)
+            possible[idx][1]=set(left)
+            crossover=[1]
         else:
-            possible[idx].intersection_update(canbe)
+            possible[idx][0]=set(left)
+            possible[idx][1]=set(right)
+            crossover=[0,1]
 
-        out_sets[idx].append(possible[idx])
+        if crossover is not None:
+            for i in crossover:
+                start = lastcross[idx][i]
+                lastcross[idx][i] = len(out_sets[0])
+                # copy this set up to the last crossover point
+                for li in range(start, lastcross[idx][i]):
+                    out_sets[idx][li-1][i] = out_sets[idx][-1][i]
 
-        if len(possible[idx])==1:
-            for pf in possible[idx]:
+        out_sets[idx].append( [set(possible[idx][0]),set(possible[idx][1])] )
+
+        if len(possible[idx][0])==1:
+            for pf in possible[idx][0]:
+                if pf not in out_distributions[idx]:
+                    out_distributions[idx][ pf ]=1
+                else:
+                    out_distributions[idx][ pf ]+=1
+        if len(possible[idx][1])==1:
+            for pf in possible[idx][1]:
                 if pf not in out_distributions[idx]:
                     out_distributions[idx][ pf ]=1
                 else:
@@ -88,43 +126,37 @@ for f in founders:
 
 print foundermap
 
-for ln in range(0,len(all_lines)):
-    d = all_lines[ln]
-
+for ln in range(0,len(out_sets[0])):
+    #print '\t'.join(out_sets[0][ln])
     no_out=False
     founderstates=[]
     for xi in range(1,num_arrays+1):
-        if '-' in out_sets[xi][ln-1]:
-            out_sets[xi][ln-1].remove('-')
-        if '' in out_sets[xi][ln-1]:
-            out_sets[xi][ln-1].remove('')
+        ostr=''
+        for i in [0,1]:
+            if len(out_sets[xi][ln][i])==0:
+                no_out=True
+                break
 
-        if len(out_sets[xi][ln-1])==0:
-            no_out=True
+            if len(out_sets[xi][ln][i])==1:
+                for oset in out_sets[xi][ln][i]:
+                    ostr+=foundermap[ oset ]
+                continue
+
+            # more than one call, get the most likely
+            osets = list(out_sets[xi][ln][i])
+            osets.sort(key=lambda x:out_distributions[xi][x])
+            ostr+= foundermap[ osets[0] ]
+
+        if no_out:
             break
 
-        if len(out_sets[xi][ln-1])==1:
-            ostr=''
-            for oset in out_sets[xi][ln-1]:
-                ostr+=foundermap[ oset ]
-            ostr+=ostr
-            founderstates.append( ostr )
-        else:
-            no_out=True
-            continue
-
-            osets = list(out_sets[xi][ln-1])
-            osets.sort(key=lambda x:out_distributions[xi][x])
-
-            ostr = foundermap[ osets[0] ]
-            ostr+= foundermap[ osets[1] ]
-            if ostr[0]>ostr[1]:
-                ostr = ostr[::-1]
-            founderstates.append( ostr )
+        if ostr[0]>ostr[1]:
+            ostr = ostr[::-1]
+        founderstates.append( ostr )
 
     if no_out:
         continue
 
     #print >>fout, "%s\t%s\t%s\t%s" % (d[0],d[5][3:], d[6], '\t'.join([' // '.join(out_sets[xi][ln-1]) for xi in range(1,5)]))
-    print >>fout, "%s\t%s\t%s\t%s" % (d[0],d[5][3:], d[6], '\t'.join(founderstates))
+    print >>fout, "%s\t%s" % ('\t'.join(out_sets[0][ln]), '\t'.join(founderstates))
 fout.close()
