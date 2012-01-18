@@ -52,9 +52,11 @@ for ln in range(1,len(all_lines)):
                 canbe=frozenset(a[1])
             elif b[0][0]==d[idx][0]: # B allele
                 canbe=frozenset(b[1])
+
         else: # heterozygous
-            out_sets[idx].append(set())
-            continue
+            canbe=frozenset(a[1]+b[1])
+            #out_sets[idx].append(set())
+            #continue
 
         if len(possible[idx])==0 or possible[idx].isdisjoint(canbe):
             if lastcross[idx]!=0:
