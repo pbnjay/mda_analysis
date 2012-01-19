@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 #
-# USAGE: python call_founders.py results.txt founders.txt
+# USAGE: python call_founders.py possible_founders.txt founders.txt
 #
-# where results.txt is the results file from determine_founders.py
+# where possible_founders.txt is the results file from determine_founders.py
 #
 # this script will aggregate calls in a region to guess at the most
 # likely founder strain. for example, if there are 3 possible founders
@@ -16,8 +16,9 @@ founders=set()
 
 # read in the file, split on tabs, and sort by chr/pos
 all_lines = open(sys.argv[1]).read().split('\n')
+header = all_lines[0].split('\t')
 all_lines = [line.split('\t') for line in all_lines[1:-1]]
-all_lines.sort(key=lambda x:(x[5],int(x[6])))
+all_lines.sort(key=lambda x:(x[-4],int(x[-3])))
 
 num_arrays = len(all_lines[0])-5
 out_distributions =[{} for x in range(0,num_arrays+1)]
@@ -28,7 +29,7 @@ canbe=None
 possible=None
 
 fout = open(sys.argv[2], 'w')
-
+print >>fout, "%s\t%s\t%s\t%s" % ( header[0], header[-4], header[-3], '\t'.join(header[1:num_arrays+1]))
 for ln in range(1,len(all_lines)):
     d=all_lines[ln]
     chr = d[-4][3:]
@@ -117,17 +118,7 @@ for ln in range(1,len(all_lines)):
 
     lastchr=chr
 
-foundermap={}
-fstr="ABCDEFGHIJKLMNOPQRSTUV"
-for f in founders:
-    if f=='':
-        continue
-    foundermap[f]=fstr[len(foundermap)]
-
-print foundermap
-
 for ln in range(0,len(out_sets[0])):
-    #print '\t'.join(out_sets[0][ln])
     no_out=False
     founderstates=[]
     for xi in range(1,num_arrays+1):
@@ -139,24 +130,19 @@ for ln in range(0,len(out_sets[0])):
 
             if len(out_sets[xi][ln][i])==1:
                 for oset in out_sets[xi][ln][i]:
-                    ostr+=foundermap[ oset ]
+                    ostr+=oset+" // "
                 continue
 
-            # more than one call, get the most likely
-            osets = list(out_sets[xi][ln][i])
-            osets.sort(key=lambda x:out_distributions[xi][x])
-            ostr+= foundermap[ osets[0] ]
+            ostr='- // - // '
+            break
 
         if no_out:
             break
 
-        if ostr[0]>ostr[1]:
-            ostr = ostr[::-1]
-        founderstates.append( ostr )
+        founderstates.append(ostr[:-4])
 
     if no_out:
         continue
 
-    #print >>fout, "%s\t%s\t%s\t%s" % (d[0],d[5][3:], d[6], '\t'.join([' // '.join(out_sets[xi][ln-1]) for xi in range(1,5)]))
     print >>fout, "%s\t%s" % ('\t'.join(out_sets[0][ln]), '\t'.join(founderstates))
 fout.close()

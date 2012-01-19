@@ -7,8 +7,18 @@
 
 args <- commandArgs(TRUE)
 
+cat("Loading data...")
 library("MouseDivGeno")
 load("MouseDivData.RData")
+
+thresh <- 0
+if( length(args)>=3) {
+	thresh <- as.numeric(args[3])
+  if( is.na(thresh) ) {
+    thresh <- 0
+  }
+}
+cat("Genotyping .CEL files in",args[1], "at a confidence level of", thresh)
 
 genoVinoResult <- mouseDivGenotypeCEL(
 		snpProbeInfo = snpProbeInfo,
@@ -16,7 +26,7 @@ genoVinoResult <- mouseDivGenotypeCEL(
 		referenceDistribution = snpReferenceDistribution,
 		chromosomes = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19, "X", "Y", "M"),
 		celFiles = args[1],
-		confScoreThreshold = 0)
+		confScoreThreshold = thresh)
 
 write.csv(genoVinoResult$geno, args[2], quote=FALSE)
 
@@ -26,4 +36,3 @@ write.csv(genoVinoResult$geno, args[2], quote=FALSE)
 # get annotated results
 #infoMatched <- snpInfo[match(rownames(genoVinoResult), snpInfo$snpId), ]
 #annoResults <- cbind(infoMatched, annoResults)
-#write.csv(annoResults[1, , drop=FALSE], args[2], quote=FALSE)

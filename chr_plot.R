@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript --vanilla --no-restore
 #
-# USAGE: chr_plot.R color_defs.txt datafile.txt whichArray output.pdf "plot title"
+# USAGE: chr_plot.R datafile.txt output.pdf
 #
 # Feb. 14, 2011
 #  - Original script by Daniel Gatti <Dan.Gatti@jax.org>
@@ -14,60 +14,47 @@
  
 options(stringsAsFactors = F)
 library(org.Mm.eg.db)
+library(RColorBrewer)
  
 args <- commandArgs(TRUE)
 
-colorsFile = args[1]
-dataFile = args[2]
-
-whichArray = as.numeric(args[3])
-outputPDF = args[4]
+dataFile = args[1]
+outputPDF = args[2]
 
 ################################################################################
-# Get the chromosome lengths.
-chrlen = org.Mm.egCHRLENGTHS
-remove = grep("random", names(chrlen))
-if(length(remove) > 0) {
-  chrlen = chrlen[-remove]
-} # if(length(remove) > 0)
-chrlen = chrlen * 1e-6
- 
-# format is AB #000000 #000000
-states = read.delim(colorsFile)
-rownames(states) = states[,1]
+founderSplit=" // "
+#founderSplit=""
 
-# format is SNPNAME001 CHR POS XY AB CD ...
-thecalls = read.delim(dataFile, header=FALSE)
+# format is SNPNAME001 CHR POS (founders-of-A) (founders-of-B) (founders-of-C) ...
+thecalls = read.delim(dataFile)
 # remove Y,M, relabel X, and scale positions
 thecalls = thecalls[thecalls[,2] != "Y" & thecalls[,2] != "M",]
-thecalls[thecalls[,2] == "X",2] = "20"
+numchr = length(unique(thecalls[,2]))
+thecalls[thecalls[,2] == "X",2] = numchr
 thecalls[,3] = thecalls[,3] * 1e-6
 
-#############################################################################
-# Draw the skeleton of the chromosomes.
-# Arguments: chr: vector with chr names to plot.
-#            chrlen: vector with chr lengths, named with chr names.
-#            onScreen: logical, T if plot is on screen, false if to file.
-plot.chr.skeletons = function(chr, chrlen, onScreen = T) {
-  chrlen = chrlen[names(chrlen) %in% chr]
-  # Draw the plotting area.
-  if(!onScreen) {
-    par(cex = 2)
-  } # if(!onScreen)
-  par(font = 2, font.axis = 2, font.lab = 2, las = 1)
-  plot(1, 1, col = 0, xlim = c(1, (2 * length(chrlen) + 1)),
-       ylim = c(-3, 1.1 + max(chrlen)), xaxt = "n", xlab = "", ylab = "Mb")
-  # Draw chr skeletons
-  for(i in 1:length(chrlen)) {
-    lines(2 * c(i, i), c(0, chrlen[i]))
-  } # for(i)
-  # Draw Mb lines.
-  abline(h = 0:20 * 10, col = rgb(0.7,0.7,0.7))
-  abline(h = 0:4  * 50, col = rgb(0.5,0.5,0.5), lwd = 1.2)
-  text(2 * 1:length(chrlen), -5, names(chrlen))
-} # plot.chr.skeletons()
- 
- 
+chrnames = sort(as.numeric(unique(thecalls[,2])))
+chrnames[ length(chrnames) ] = "X"
+
+# Get the chromosome lengths.
+chrlen = org.Mm.egCHRLENGTHS * 1e-6
+chrlen = chrlen[names(chrlen) %in% chrnames]
+
+# determine the array source names
+arrayNames = colnames(thecalls)
+arrayNames = arrayNames[4:length(arrayNames)]
+
+# determine all the founder names
+foundernames = c("-")
+for(i in 1:length(arrayNames)) {
+	mf = unlist(strsplit(thecalls[,3+i],founderSplit))
+	foundernames = unique(c(foundernames,mf))
+}
+
+# assign colors to the founder names using a qualitative Brewer color scheme
+states = aperm(as.array(brewer.pal(length(foundernames),"Paired")))
+rownames(states) = foundernames
+
 ################################################################################
 # Plot the genotypes using only the maximum probability at each SNP and arrange
 # the colors to minimize jumping from one strand to the other.
@@ -75,16 +62,33 @@ plot.chr.skeletons = function(chr, chrlen, onScreen = T) {
 #						 whichcall: an integer 1-N where N is the number of calls in thecalls
 plot.genotype.max2 = function(thecalls, whichcall, title, onScreen) {
   # Plot the chromosome skeletons.
-  chr = sort(as.numeric(unique(thecalls[,2])))
-  chr[20] = "X"
-  plot.chr.skeletons(chr, chrlen, onScreen)
+  par(font = 2, font.axis = 2, font.lab = 2, cex.main=2, las = 1, mar=c(5,4,4,10)+0.1)
+  plot(1, 1, col = 0, xlim = c(1, (2 * length(chrlen) + 1)),
+       ylim = c(-3, 1.1 + max(chrlen)), xaxt = "n", xlab = "", ylab = "Mb", frame.plot=F)
+  # Draw chr skeletons
+  for(i in 1:length(chrlen)) {
+    lines(2 * c(i, i), c(0, chrlen[i]))
+  } # for(i)
+  # Draw Mb lines.
+  abline(h = 0:20 * 10, col = rgb(0.7,0.7,0.7))
+  abline(h = 0:4  * 50, col = rgb(0.5,0.5,0.5), lwd = 1.2)
+  text(2 * 1:length(chrlen), -5, names(chrlen), cex=2)
   title(title)
+
+	par(xpd=T, font=1)
+	toshow = which(rownames(states)!="-")
+	legend((2 * length(chrlen) + 1)+2,1.1+max(chrlen),legend=rownames(states)[toshow], fill=states[toshow])
+	par(xpd=F)
  
+  #############
+
   offset = 0.6
   for(c in 1:length(chrlen)) {
     ss = which(thecalls[,2] == c)
     if(length(ss) > 0) {
-      ms = thecalls[ss,3+whichcall]  # should be the founder call ex: "CD"
+			ms = t(matrix(unlist(strsplit(thecalls[ss,3+whichcall],founderSplit)),nr=2))
+			leftfounders=ms[,1]
+			rightfounders=ms[,2]
       y = thecalls[ss,3]  # chr position
 
       # xm is the middle of the chromosome.
@@ -94,8 +98,8 @@ plot.genotype.max2 = function(thecalls, whichcall, title, onScreen) {
       # xr is the right side.
       xr = xm + offset
       # Get the left and right colors.
-      lcol = states[ms,2]
-      rcol = states[ms,3]
+      lcol = states[leftfounders]
+      rcol = states[rightfounders]
       # Get the left and right side breaks points.
       lbreaks = c(1, which(lcol[1:(length(lcol)-1)] != lcol[2:length(lcol)]) +
                   1, length(lcol))
@@ -157,6 +161,9 @@ plot.genotype.max2 = function(thecalls, whichcall, title, onScreen) {
   } # for(c)
 } # plot.genotype.max2()
 
-# draw the desired plot
-pdf(file=outputPDF, height=8.5, width=11)
-plot.genotype.max2(thecalls, whichArray, args[5], FALSE)
+# draw the desired plot into a multi-page PDF
+pdf(file=outputPDF, height=10, width=(length(chrlen)*0.75 + 3))
+for(i in 1:length(arrayNames)) {
+	plot.genotype.max2(thecalls, i, arrayNames[i], FALSE)
+}
+dev.off()
