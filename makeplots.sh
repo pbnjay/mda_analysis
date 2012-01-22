@@ -31,8 +31,8 @@ GENOS=`basename "$1" .txt`
 echo determine_founders.py "$2" "$GENOS.txt" "$GENOS.possible.txt"
 $CURDIR/determine_founders.py "$2" "$GENOS.txt" "$GENOS.possible.txt"
 
-echo call_founders.py "$GENOS.possible.txt" "$GENOS.founders.txt"
-$CURDIR/call_founders.py "$GENOS.possible.txt" "$GENOS.founders.txt"
+echo call_founders6.py "$GENOS.possible.txt" "$GENOS.founders.txt"
+$CURDIR/call_founders.py "$GENOS.possible.txt" "$GENOS.founders.txt" "$GENOS.accuracy.txt"
 
 echo chr_plot.R "color_defs.txt" "$GENOS.founders.txt" "$GENOS.pdf"
 $CURDIR/chr_plot.R "$GENOS.founders.txt" "$GENOS.pdf"
