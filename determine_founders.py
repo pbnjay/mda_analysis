@@ -19,8 +19,13 @@ for line in f1:
     d=line.strip().split(',')
     annotations[ d[0] ] = d[1:]
 f1.close()
-print 'Loaded %d SNP Annotations' % (len(annotations),)
+print 'Loaded %d SNP Annotations for %d founder strains' % (len(annotations),num_founders)
 
+nmissing=0
+nnocalls=0
+nuninfo=0
+total_snps=0
+output_snps=0
 f2 = open(sys.argv[2])
 geno_header = f2.next().strip().split(',')[1:]
 f3 = open(sys.argv[3], 'w')
@@ -28,10 +33,13 @@ print >>f3, '\t'.join(['snp id']+geno_header+['chromosome', 'position', 'A allel
 for line in f2:
     d=line.strip().split(',')
     newline=[ d[0] ]
+    total_snps+=1
 
     if d[0] not in annotations:
+        nmissing+=1
         continue
 
+    nocall=0
     ann = annotations[ d[0] ]
     for i in range(1,len(d)):
         geno='--'
@@ -41,8 +49,15 @@ for line in f2:
             geno=ann[0]+ann[1]
         elif d[i]=='3': # BB
             geno=ann[1]+ann[1]
+        else:
+            nocall+=1
 
         newline.append(geno)
+
+    if nocall==len(d)-1:
+        nnocalls+=1
+        continue
+
     a_strains=[]
     b_strains=[]
 
@@ -54,12 +69,22 @@ for line in f2:
 
     # totally uninformative, A/B could be any possible founder
     if len(a_strains)==num_founders or len(b_strains)==num_founders:
+        nuninfo+=1
         continue
 
     newline.extend( ann[2:4] )
     newline.append(ann[0]+': '+' // '.join(a_strains))
     newline.append(ann[1]+': '+' // '.join(b_strains))
     print >>f3, "\t".join(newline)
+    output_snps+=1
 
 f3.close()
 f2.close()
+
+print " %9d SNPs in the input genotypes" % (total_snps,)
+print " ---------"
+print " %9d SNPs with missing annotations" % (-nmissing,)
+print " %9d SNPs were identical across all strains" % (-nuninfo,)
+print " %9d SNPs had no calls across all genotype arrays" % (-nnocalls,)
+print " ---------"
+print " %9d SNPs in the output" % (output_snps,)
