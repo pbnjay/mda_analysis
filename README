@@ -19,14 +19,8 @@ Quickstart:
     $ mkdir celfiles
     $ cp /path/to/cel/files/*.CEL celfiles/
 
-    $ ./get_genotypes.R celfiles genotypes.txt
+    $ ./get_genotypes.R celfiles genotypes.txt 0.1
       ## takes approx 1.5 hours on a 2.6Ghz MacBook Pro
 
-    $ python determine_founders.py res591576617.csv genotypes.txt possible_founders.txt
-      ## 15 secs
-
-    $ python call_founders.py possible_founders.txt founders.txt
-      ## 30 secs
-
-    $ ./chr_plot.R founders.txt mouse.pdf
-      ## ~30 secs per .CEL file
+    $ ./makeplots.sh genotypes.txt res591576617.csv
+      ## ~3 minutes with 4 arrays

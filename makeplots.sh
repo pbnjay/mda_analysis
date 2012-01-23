@@ -35,6 +35,7 @@ echo call_founders6.py "$GENOS.possible.txt" "$GENOS.founders.txt"
 $CURDIR/call_founders.py "$GENOS.possible.txt" "$GENOS.founders.txt" "$GENOS.accuracy.txt"
 
 echo chr_plot.R "color_defs.txt" "$GENOS.founders.txt" "$GENOS"
-$CURDIR/chr_plot.R "$GENOS.founders.txt" "$GENOS"
+$CURDIR/chr_plot.R "$GENOS.founders.txt" "$GENOS.accuracy.txt" "$GENOS"
 
 echo "You should have a founder haplotype plot in $GENOS.pdf"
+echo "And founder accuracy plots in $GENOS-p###.png"
