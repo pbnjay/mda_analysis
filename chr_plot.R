@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript --vanilla --no-restore
 #
-# USAGE: chr_plot.R datafile.txt output.pdf [qtls.txt]
+# USAGE: chr_plot.R datafile.txt metrics.txt output_prefix [qtls.txt]
 #
 # Feb. 14, 2011
 #  - Based on plot.genotype.max2 by Daniel Gatti <Dan.Gatti@jax.org>
@@ -19,16 +19,19 @@ library(RColorBrewer)
 args <- commandArgs(TRUE)
 
 dataFile = args[1]
-outputPDF = args[2]
+metricFile = args[2]
+outputPDF = paste(args[3],".pdf",sep="")
+outputPNG = paste(args[3],"-p%d.png",sep="")
 
 qtlFile = NA
-if(length(args)>=3) {
-  qtlFile = args[3]
+if(length(args)>=4) {
+  qtlFile = args[4]
 }
 
 ################################################################################
+dpiOutput=150
 ignoreChrs=c("Y","M")
-onlyQTLChrs=TRUE
+onlyQTLChrs=FALSE
 fillChrEnds=TRUE
 mergeUncalled=TRUE
 chromoSpacing=6
@@ -62,11 +65,11 @@ foundernames = sort(foundernames)
 
 # assign colors to the founder names using a qualitative Brewer color scheme
 if( mergeUncalled ) {
-  states = aperm(as.array(c(NA, brewer.pal(length(foundernames)-1,"Paired"))))
+  colormap = aperm(as.array(c(NA, brewer.pal(length(foundernames)-1,"Paired"))))
 } else {
-  states = aperm(as.array(brewer.pal(length(foundernames),"Paired")))
+  colormap = aperm(as.array(brewer.pal(length(foundernames),"Paired")))
 }
-rownames(states) = foundernames
+rownames(colormap) = foundernames
 
 if( !is.na(qtlFile) ) {
   qtls = read.delim(qtlFile)
@@ -74,15 +77,34 @@ if( !is.na(qtlFile) ) {
   qtls[,3:5] = qtls[,3:5] * 1e-6
 }
 
+
+callscores = read.delim(metricFile)
+callscores[,3] = callscores[,3] * 1e-6
+
+# remove ignored chromosomes
+callscores = callscores[callscores[,2] %in% ignoreChrs == FALSE,]
+scorevalues = c("0.000")
+for(i in 1:length(arrayNames)) {
+  mf = unlist(strsplit(callscores[,3+i],founderSplit))
+  scorevalues = unique(c(scorevalues,mf))
+}
+#scorecolors = aperm(as.array(gray(scorevalues)))
+scorecolors = aperm(as.array(rgb(1.0-as.numeric(scorevalues),as.numeric(scorevalues),0.0)))
+rownames(scorecolors) <- scorevalues
+
 ################################################################################
 # Plot the genotypes using only the maximum probability at each SNP and arrange
 # the colors to minimize jumping from one strand to the other.
 # Arguments: thecalls: SNPID, chrN, position, call1, call2, ...
 #             whichcall: an integer 1-N where N is the number of calls in thecalls
-plot.genotype.max2 = function(thecalls, arrayPair) {
+plot.genotype.max2 = function(dataset, arrayPair, states=NA) {
   par(font = 2, font.axis = 2, font.lab = 2, cex.main=1.5, las = 1, mar=c(2,5,4,10)+0.1)
   offset = chromoSpacing/4
   chrs = chrlen
+
+  #if( is.na(states) ) {
+  #  states=colormap
+  #}
 
   if( length(arrayPair)>1 ) {
     offset = chromoSpacing/10
@@ -131,7 +153,7 @@ plot.genotype.max2 = function(thecalls, arrayPair) {
       if(length(qs)>0) {
         qoff <- offset*3.5
         # draw span in red (brightness depends on % length)
-        rect(chromoSpacing*c-qoff, qtls[qs,4], chromoSpacing*c+qoff, qtls[qs,5], col = rgb(1.0-((qtls[qs,5]-qtls[qs,4])/chrs[c]),0,0), border=NA)
+        rect(chromoSpacing*c-qoff, qtls[qs,4], chromoSpacing*c+qoff, qtls[qs,5], col = rgb(0.3,0.3,0.3), border=NA)
         # draw peak in green
         rect(chromoSpacing*c-qoff, qtls[qs,3]-0.25, chromoSpacing*c+qoff, qtls[qs,3]+0.25, col = rgb(0,1.0,0), border=NA)
       }
@@ -145,12 +167,12 @@ plot.genotype.max2 = function(thecalls, arrayPair) {
       cn = names(chrs)[c]
 
       # draw the founder haplotypes
-      ss = which(thecalls[,2] == cn)
+      ss = which(dataset[,2] == cn)
       if(length(ss) > 0) {
-        ms = t(matrix(unlist(strsplit(thecalls[ss,3+whichcall],founderSplit)),nr=2))
+        ms = t(matrix(unlist(strsplit(dataset[ss,3+whichcall],founderSplit)),nr=2))
         leftfounders=ms[,1]
         rightfounders=ms[,2]
-        y = thecalls[ss,3]  # chr position
+        y = dataset[ss,3]  # chr position
 
         # xm is the middle of the chromosome.
         xm = chromoSpacing * c
@@ -252,15 +274,26 @@ plot.genotype.max2 = function(thecalls, arrayPair) {
 
 # draw the desired plot into a multi-page PDF
 pdf(file=outputPDF, height=8.5, width=length(chrlen)+3)
+
+# plot all pairs of arrays
 for(i in 1:length(arrayNames)) {
   for(j in 1:length(arrayNames)) {
     if( i<j ) {
       arrayPair=c(i,j)
-      plot.genotype.max2(thecalls, arrayPair)
+      plot.genotype.max2(thecalls, arrayPair, colormap)
     }
   }
 }
+
+# plot indivdual arrays
 for(i in 1:length(arrayNames)) {
-  plot.genotype.max2(thecalls, c(i))
+  plot.genotype.max2(thecalls, c(i), colormap)
+}
+dev.off()
+
+png(file=outputPNG, height=8.5*dpiOutput, width=(length(chrlen)+3)*dpiOutput, res=dpiOutput)
+#plot array accuracies
+for(i in 1:length(arrayNames)) {
+  plot.genotype.max2(callscores, c(i), scorecolors)
 }
 dev.off()
